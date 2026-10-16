@@ -2,6 +2,12 @@
 
 Demo học tập dùng EAR từ webcam hoặc video để hiển thị bốn trạng thái `NORMAL`, `EYES_CLOSED`, `DROWSY`, `NO_FACE`. Đây không phải hệ thống an toàn đã được kiểm chứng để điều khiển phương tiện.
 
+## Đội ngũ thực hiện - Nhóm AI 3N
+- **Nguyễn Tuấn Khanh** (Trưởng nhóm) - MSV: **2A202602819** (Module A: Vision)
+- **Trịnh Xuân Huy** - MSV: **2A202602995** (Module B: Drowsiness Logic)
+- **Nguyễn Xuân Thành** - MSV: **2A202602666** (Module C: App & Alerts)
+- **Báo cáo tổng kết Capstone:** [BAO_CAO_CAPSTONE_AI3N.md](BAO_CAO_CAPSTONE_AI3N.md)
+
 ## Trạng thái
 
 Commit nền `0eada84` tạo [hợp đồng dữ liệu](src/contracts.py). Localhost và CLI C dùng adapter Face Mesh cùng hàm EAR từ `drowsiness_detector.py` của A, rồi truyền `FaceObservation` cho `src/drowsiness.py` của B. Mã A/B được giữ nguyên từ `feat/A_vision` (`c98fa8a`); C không sửa logic của họ. Demo độc lập của A chạy bằng `drowsiness_detector.py`. A chưa cung cấp `src/vision.py` đúng hợp đồng, nên CLI C tự dùng adapter của mình. Xem [kết quả kiểm tra](docs/demo_results.md) để biết phần nào đã chạy thật.
