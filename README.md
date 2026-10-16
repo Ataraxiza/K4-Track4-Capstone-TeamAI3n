@@ -1,51 +1,35 @@
-# Nhận diện tài xế buồn ngủ
+# Demo cảnh báo nhắm mắt kéo dài cho tài xế
 
-**Đề tài capstone:** Xây dựng demo thị giác máy tính nhận biết dấu hiệu buồn ngủ của tài xế qua camera.
+Demo học tập dùng webcam hoặc video để hiển thị dấu hiệu nhắm mắt kéo dài qua EAR. Đây không phải hệ thống an toàn được kiểm chứng để điều khiển phương tiện.
 
-## Giới thiệu
+## Trạng thái triển khai
 
-Demo dự kiến theo dõi mắt tài xế từ hình ảnh webcam, tính **Eye Aspect Ratio (EAR)** bằng các điểm mốc khuôn mặt của MediaPipe Face Mesh và phát cảnh báo khi mắt nhắm liên tục quá ngưỡng. Mục tiêu là minh họa một thành phần hỗ trợ giám sát tài xế, không phải hệ thống tự lái hay thiết bị y tế.
+Đã tạo bộ khung và [hợp đồng dữ liệu](src/contracts.py) chung cho ba module. Module A (trích xuất EAR), B (quyết định trạng thái) và C (ứng dụng) đang được xây dựng theo [phân công](Phan_cong_demo_canh_bao_buon_ngu.md). Chưa có lệnh chạy demo thật tại commit nền này.
 
-## Mục tiêu
+## Cài đặt
 
-- Phát hiện khuôn mặt và theo dõi các điểm mốc quanh mắt theo thời gian thực.
-- Tính EAR cho từng mắt để ước lượng trạng thái mở hoặc nhắm.
-- Xác định trạng thái buồn ngủ khi EAR thấp liên tục trong một khoảng thời gian đã hiệu chỉnh.
-- Hiển thị trạng thái và phát cảnh báo để người xem nhận biết trong buổi demo.
+Yêu cầu Python 3.10 trở lên. Trên Windows PowerShell, chạy từ thư mục gốc repo:
 
-## Quy trình dự kiến
+```powershell
+py -3.10 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
 
-1. Đọc hình ảnh từ webcam.
-2. Dùng MediaPipe Face Mesh tìm các điểm mốc khuôn mặt, đặc biệt là vùng mắt.
-3. Tính EAR cho mỗi mắt. Với các điểm theo thứ tự dọc mắt trên, dọc mắt dưới và hai khóe mắt, công thức là:
+Trên macOS/Linux:
 
-   $$EAR = \frac{d(p_2,p_6) + d(p_3,p_5)}{2d(p_1,p_4)}$$
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
 
-4. So sánh EAR với ngưỡng được hiệu chỉnh theo người dùng và điều kiện camera.
-5. Chỉ phát cảnh báo nếu trạng thái nhắm mắt kéo dài qua ngưỡng thời gian; cập nhật trạng thái trực quan trên khung hình.
+MediaPipe 0.10.14 được chọn làm điểm xuất phát cho Face Mesh trên Python 3.10. Phiên bản cuối sẽ được chốt sau khi A/B/C cùng kiểm tra import và chạy demo trên máy nhóm. Không commit `.venv`, model hoặc video cá nhân.
 
-## Công nghệ dự kiến
+## Hợp đồng và tham số dự kiến
 
-- **Python** – xử lý và kết nối các thành phần.
-- **OpenCV** – lấy hình ảnh webcam và hiển thị kết quả.
-- **MediaPipe Face Mesh** – phát hiện khuôn mặt và các điểm mốc mắt.
-- **NumPy** – tính toán khoảng cách và EAR.
+Frame truyền giữa các module là BGR. Webcam dùng `time.monotonic()`, video dùng thời gian nội dung video. `FaceObservation` và `DrowsinessResult` trong `src/contracts.py` là giao diện chung; mọi thay đổi cần cả nhóm thống nhất trước.
 
-Các thư viện và phiên bản cụ thể sẽ được chốt khi phần triển khai được thêm vào repo.
-
-## Kịch bản demo
-
-- Mở mắt bình thường: hiển thị trạng thái tỉnh táo, không phát cảnh báo.
-- Nhắm mắt trong thời gian ngắn: không cảnh báo ngay, tránh phản ứng với một lần chớp mắt.
-- Nhắm mắt liên tục quá ngưỡng: hiển thị cảnh báo buồn ngủ và phát tín hiệu cảnh báo.
-- Thử thay đổi ánh sáng, khoảng cách tới camera và góc mặt để quan sát giới hạn nhận diện.
-
-## Trạng thái dự án
-
-Hiện repo mới có tài liệu đề xuất; mã nguồn demo, hướng dẫn cài đặt và lệnh chạy sẽ được bổ sung cùng phần triển khai.
-
-## An toàn và quyền riêng tư
-
-- Đây là demo học tập, không thay thế hệ thống giám sát đạt chuẩn hoặc quyết định của tài xế. Không nên sử dụng demo để vận hành phương tiện hay làm căn cứ duy nhất cho quyết định an toàn.
-- Chất lượng nhận diện có thể giảm khi thiếu sáng, camera rung, khuôn mặt bị che, người đeo kính, hoặc đầu quay khỏi camera. EAR và ngưỡng cảnh báo cần được hiệu chỉnh, và cảnh báo có thể sai.
-- Ưu tiên xử lý hình ảnh cục bộ; không lưu hoặc chia sẻ video khuôn mặt nếu chưa có sự đồng ý rõ ràng của người tham gia.
+CLI của C sẽ hỗ trợ `--camera` hoặc `--video`, `--ear-threshold`, `--closed-seconds`, `--max-gap-seconds`, `--model`, `--sound` và `--cooldown-seconds`. `max_gap_seconds` mặc định là 0.5 giây theo hợp đồng B; khi xử lý video chậm, C sẽ cho phép chỉnh tham số này thay vì cộng thời gian qua khoảng trống lớn.
