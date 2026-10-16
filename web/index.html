@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demo cảnh báo buồn ngủ · Team AI3n</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brandmark">AI3n</span><span>Demo cảnh báo buồn ngủ</span></div>
+      <div class="top-actions"><span id="modeBadge" class="mode-badge">Đang kết nối</span><span id="serverBadge" class="server-badge">Localhost</span></div>
+    </header>
+
+    <section class="intro">
+      <div>
+        <p class="eyebrow">Webcam · Video · Ghi hình</p>
+        <h1>Theo dõi dấu hiệu nhắm mắt kéo dài</h1>
+        <p>Chọn webcam hoặc video, quan sát trạng thái và ghi lại buổi demo ngay trong trình duyệt. Chế độ mô phỏng được gắn nhãn rõ ràng.</p>
+      </div>
+      <div class="intro-note"><strong>Chỉ dùng cho demo</strong><span>Không dùng kết quả này để quyết định an toàn khi lái xe.</span></div>
+    </section>
+
+    <div class="layout">
+      <section class="viewer panel" aria-label="Khung hình demo">
+        <div class="viewer-head"><span class="section-kicker">01 / KHUNG HÌNH</span><span id="sourceLabel">Chưa chọn nguồn</span></div>
+        <div class="canvas-wrap"><canvas id="stage" width="960" height="540" aria-label="Video demo"></canvas><video id="sourceVideo" playsinline muted hidden></video><div class="live-tag" id="liveTag">CHỜ NGUỒN</div></div>
+        <div class="viewer-foot"><span id="connectionText">Chọn nguồn để bắt đầu.</span><span id="fpsText">— FPS</span></div>
+      </section>
+
+      <aside class="side">
+        <section class="status-card panel" id="statusCard" data-status="NO_FACE">
+          <div class="card-top"><span class="section-kicker">02 / TRẠNG THÁI</span><span class="pulse" aria-hidden="true"></span></div>
+          <div class="status-name" id="statusName">CHƯA CÓ NGUỒN</div>
+          <p class="status-desc" id="statusDesc">Mở webcam hoặc chọn video để xem demo.</p>
+          <div class="metrics">
+            <div><span>EAR TRÁI</span><strong id="earLeft">—</strong></div>
+            <div><span>EAR PHẢI</span><strong id="earRight">—</strong></div>
+            <div><span>NHẮM MẮT</span><strong id="closedDuration">0.00 s</strong></div>
+          </div>
+        </section>
+
+        <section class="panel controls">
+          <span class="section-kicker">03 / NGUỒN VÀ GHI HÌNH</span>
+          <div class="button-grid"><button id="cameraBtn" class="primary" type="button">Mở webcam</button><button id="videoBtn" class="secondary" type="button">Chọn video</button></div>
+          <input id="videoFile" type="file" accept="video/*" hidden>
+          <button id="stopSourceBtn" class="text-button" type="button" disabled>Dừng nguồn</button>
+          <div class="separator"></div>
+          <div class="button-grid"><button id="recordBtn" class="record-button" type="button" disabled><span class="record-dot"></span>Bắt đầu quay</button><button id="stopRecordBtn" class="secondary" type="button" disabled>Dừng quay</button></div>
+          <a id="downloadLink" class="download-link" hidden>Tải video đã quay</a>
+          <p class="help">Video được lưu trên máy bạn dưới dạng WebM. Bản ghi gồm khung hình hiển thị và âm báo của trang khi trình duyệt hỗ trợ.</p>
+        </section>
+      </aside>
+    </div>
+
+    <section class="lower">
+      <div class="panel config-panel">
+        <div class="section-head"><span class="section-kicker">04 / CẤU HÌNH</span><span id="configNote">Ngưỡng nhận diện và âm báo</span></div>
+        <form id="configForm" class="config-grid">
+          <label>Ngưỡng EAR<input name="ear_threshold" type="number" min="0.01" max="1" step="0.01" value="0.22" required></label>
+          <label>Nhắm mắt (giây)<input name="closed_seconds" type="number" min="0.1" step="0.1" value="2.0" required></label>
+          <label>Khoảng trống tối đa (giây)<input name="max_gap_seconds" type="number" min="0.01" step="0.01" value="0.5" required></label>
+          <label>Âm báo cách nhau (giây)<input id="cooldownInput" type="number" min="0" step="0.1" value="3.0" required></label>
+          <button class="secondary apply-button" type="submit">Áp dụng</button>
+        </form>
+      </div>
+      <div class="panel mock-panel" id="mockPanel">
+        <div class="section-head"><span class="section-kicker">05 / THỬ GIAO DIỆN</span><span>Chỉ có ở chế độ mô phỏng</span></div>
+        <p>Chọn trạng thái để kiểm tra hình ảnh và âm thanh trước khi ghép A/B thật.</p>
+        <div class="mock-buttons">
+          <button type="button" data-mock="NORMAL">NORMAL</button>
+          <button type="button" data-mock="EYES_CLOSED">EYES_CLOSED</button>
+          <button type="button" data-mock="DROWSY">DROWSY</button>
+          <button type="button" data-mock="NO_FACE">NO_FACE</button>
+        </div>
+      </div>
+    </section>
+    <footer><span id="message" role="status" aria-live="polite">Đang khởi tạo trang…</span><span>Frame chỉ gửi tới Python tại 127.0.0.1 · Video quay lưu trên máy</span></footer>
+  </main>
+</body>
+</html>

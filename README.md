@@ -1,51 +1,96 @@
-# Nhận diện tài xế buồn ngủ
+# Demo cảnh báo nhắm mắt kéo dài cho tài xế
 
-**Đề tài capstone:** Xây dựng demo thị giác máy tính nhận biết dấu hiệu buồn ngủ của tài xế qua camera.
+Demo học tập dùng EAR từ webcam hoặc video để hiển thị bốn trạng thái `NORMAL`, `EYES_CLOSED`, `DROWSY`, `NO_FACE`. Đây không phải hệ thống an toàn đã được kiểm chứng để điều khiển phương tiện.
 
-## Giới thiệu
+## Trạng thái
 
-Demo dự kiến theo dõi mắt tài xế từ hình ảnh webcam, tính **Eye Aspect Ratio (EAR)** bằng các điểm mốc khuôn mặt của MediaPipe Face Mesh và phát cảnh báo khi mắt nhắm liên tục quá ngưỡng. Mục tiêu là minh họa một thành phần hỗ trợ giám sát tài xế, không phải hệ thống tự lái hay thiết bị y tế.
+Commit nền `0eada84` tạo [hợp đồng dữ liệu](src/contracts.py). Localhost mặc định nhận diện thật: adapter C dùng Face Mesh và hàm EAR từ `drowsiness_detector.py` của A, rồi truyền `FaceObservation` cho `src/drowsiness.py` của B. Hai file A/B được chép nguyên vẹn từ `origin/feat/A_vision` (`c98fa8a`); C không sửa logic của họ. CLI OpenCV `app.py` vẫn chờ A bàn giao `src/vision.py` đúng hợp đồng. Xem [kết quả kiểm tra](docs/demo_results.md) để biết phần nào đã chạy thật.
 
-## Mục tiêu
+## Cài đặt
 
-- Phát hiện khuôn mặt và theo dõi các điểm mốc quanh mắt theo thời gian thực.
-- Tính EAR cho từng mắt để ước lượng trạng thái mở hoặc nhắm.
-- Xác định trạng thái buồn ngủ khi EAR thấp liên tục trong một khoảng thời gian đã hiệu chỉnh.
-- Hiển thị trạng thái và phát cảnh báo để người xem nhận biết trong buổi demo.
+Yêu cầu Python 3.10 trở lên. Chạy từ root của repo. Trên Windows PowerShell:
 
-## Quy trình dự kiến
+```powershell
+py -3.10 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -X utf8 -m pip install --upgrade pip
+python -X utf8 -m pip install -r requirements.txt
+```
 
-1. Đọc hình ảnh từ webcam.
-2. Dùng MediaPipe Face Mesh tìm các điểm mốc khuôn mặt, đặc biệt là vùng mắt.
-3. Tính EAR cho mỗi mắt. Với các điểm theo thứ tự dọc mắt trên, dọc mắt dưới và hai khóe mắt, công thức là:
+Trên macOS/Linux:
 
-   $$EAR = \frac{d(p_2,p_6) + d(p_3,p_5)}{2d(p_1,p_4)}$$
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
 
-4. So sánh EAR với ngưỡng được hiệu chỉnh theo người dùng và điều kiện camera.
-5. Chỉ phát cảnh báo nếu trạng thái nhắm mắt kéo dài qua ngưỡng thời gian; cập nhật trạng thái trực quan trên khung hình.
+`requirements.txt` dùng MediaPipe 0.10.21 theo nhánh A/B và OpenCV contrib 4.11.0.86. Trên máy có đường dẫn tiếng Việt, dùng `-X utf8` cho lệnh pip để tránh lỗi mã hóa console. Không cài song song `opencv-python` và `opencv-contrib-python` trong cùng môi trường vì cùng cung cấp `cv2`.
 
-## Công nghệ dự kiến
+## Xem UI bằng mock
 
-- **Python** – xử lý và kết nối các thành phần.
-- **OpenCV** – lấy hình ảnh webcam và hiển thị kết quả.
-- **MediaPipe Face Mesh** – phát hiện khuôn mặt và các điểm mốc mắt.
-- **NumPy** – tính toán khoảng cách và EAR.
+```sh
+python -m scripts.demo_app_mock
+```
 
-Các thư viện và phiên bản cụ thể sẽ được chốt khi phần triển khai được thêm vào repo.
+Script lần lượt hiển thị đủ bốn trạng thái từ `FaceObservation` và `DrowsinessResult` thật trong `src/contracts.py`. Nhấn `Q` hoặc `Esc` để thoát. Nếu không có màn hình, xuất ảnh PNG:
 
-## Kịch bản demo
+```sh
+python -m scripts.demo_app_mock --output-dir mock-preview
+```
 
-- Mở mắt bình thường: hiển thị trạng thái tỉnh táo, không phát cảnh báo.
-- Nhắm mắt trong thời gian ngắn: không cảnh báo ngay, tránh phản ứng với một lần chớp mắt.
-- Nhắm mắt liên tục quá ngưỡng: hiển thị cảnh báo buồn ngủ và phát tín hiệu cảnh báo.
-- Thử thay đổi ánh sáng, khoảng cách tới camera và góc mặt để quan sát giới hạn nhận diện.
+## Localhost nhận diện webcam/video và quay demo
 
-## Trạng thái dự án
+Trên máy Windows hiện tại, Python 3.10.9 đã có Flask 3.1.2, OpenCV 4.11.0 và NumPy 1.23.1. Tạo môi trường ảo dùng những gói sẵn có trên máy, rồi cài MediaPipe riêng trong môi trường này:
 
-Hiện repo mới có tài liệu đề xuất; mã nguồn demo, hướng dẫn cài đặt và lệnh chạy sẽ được bổ sung cùng phần triển khai.
+```powershell
+py -3.10 -m venv --system-site-packages .venv-local
+.\.venv-local\Scripts\python.exe -X utf8 -m pip install -r requirements-web.txt
+.\.venv-local\Scripts\python.exe -X utf8 -m pip install --no-deps -r requirements-vision-local.txt
+```
 
-## An toàn và quyền riêng tư
+Khởi động server từ root repo:
 
-- Đây là demo học tập, không thay thế hệ thống giám sát đạt chuẩn hoặc quyết định của tài xế. Không nên sử dụng demo để vận hành phương tiện hay làm căn cứ duy nhất cho quyết định an toàn.
-- Chất lượng nhận diện có thể giảm khi thiếu sáng, camera rung, khuôn mặt bị che, người đeo kính, hoặc đầu quay khỏi camera. EAR và ngưỡng cảnh báo cần được hiệu chỉnh, và cảnh báo có thể sai.
-- Ưu tiên xử lý hình ảnh cục bộ; không lưu hoặc chia sẻ video khuôn mặt nếu chưa có sự đồng ý rõ ràng của người tham gia.
+```powershell
+.\.venv-local\Scripts\python.exe -X utf8 web_app.py
+```
+
+Mở **http://127.0.0.1:8765** trong Chrome hoặc Edge trên cùng máy và tải lại trang nếu đang mở bản mock cũ. Cho phép webcam hoặc chọn file video. Trang gửi JPEG từng frame tới Python trên `127.0.0.1` và trả EAR/trạng thái thật, không gửi lên Internet. Thử nhìn camera với mắt mở, nhắm mắt ngắn, rồi nhắm liên tục quá thời gian đã đặt. Bấm **Bắt đầu quay**, **Dừng quay**, rồi **Tải video đã quay** để lưu WebM gồm hình có nhãn và âm báo nếu trình duyệt hỗ trợ. Có thể chọn cổng khác bằng `--port 8766`; `Ctrl+C` dừng server.
+
+Ngưỡng EAR, số giây nhắm và `max_gap_seconds` được áp dụng trực tiếp vào B khi bấm **Áp dụng**. Webcam dùng timestamp tăng đều của trình duyệt; video dùng `currentTime` của file. Tua video reset B. Khi mất mặt, EAR lỗi hoặc hai frame cách nhau quá `max_gap_seconds`, B cắt chuỗi nhắm; nếu MediaPipe xử lý chậm hơn giới hạn, tăng giá trị này có chủ đích. Âm báo phát không chặn video, có cooldown và không chồng tiếng. Để chỉ kiểm tra giao diện và âm thanh bằng trạng thái chọn tay, chạy `.\.venv-local\Scripts\python.exe -X utf8 web_app.py --mode mock`; chế độ này được gắn nhãn **MÔ PHỎNG**. Trên máy này, MediaPipe native không mở được model dưới đường dẫn repo có tiếng Việt; adapter C tự sao chép package vào thư mục tạm có tên ASCII ở lần chạy đầu. TensorFlow cài toàn cục không được dùng cho Face Mesh và được bỏ qua khi import MediaPipe.
+
+## Chạy demo khi A/B đã có
+
+```sh
+python app.py --camera 0
+python app.py --video path/to/input.mp4
+python app.py --video path/to/input.mp4 --ear-threshold 0.22 --closed-seconds 2 --max-gap-seconds 0.5 --cooldown-seconds 3
+python app.py --camera 0 --model path/to/model.task --sound assets/alarm.wav
+```
+
+`--model` là tùy chọn; A quyết định có cần file model ngoài hay không. Khi dùng, đặt model tại đường dẫn tương đối hoặc tuyệt đối của máy chạy; không commit model lớn. Xem `docs/vision.md` khi A bàn giao để biết định dạng và nguồn model cụ thể. Âm thanh mặc định là `assets/alarm.wav`; nếu file hoặc thiết bị âm thanh lỗi, cảnh báo hình ảnh vẫn chạy và ứng dụng ghi thông báo.
+
+| Tham số | Mặc định | Ý nghĩa |
+| --- | ---: | --- |
+| `--camera` | `0` | Chỉ số webcam; loại trừ `--video` |
+| `--video` | không có | Video đầu vào thay webcam |
+| `--ear-threshold` | `0.22` | Ngưỡng EAR truyền cho B |
+| `--closed-seconds` | `2.0` | Thời gian nhắm mắt truyền cho B |
+| `--max-gap-seconds` | `0.5` | Khoảng cách timestamp tối đa B được phép nối chuỗi |
+| `--model` | không có | Đường dẫn model truyền cho A |
+| `--sound` | `assets/alarm.wav` | WAV cảnh báo |
+| `--cooldown-seconds` | `3.0` | Khoảng cách tối thiểu giữa hai lần bắt đầu âm thanh |
+
+Nhấn `Q` hoặc `Esc` để thoát; khi chạy video, nhấn `R` để tua về đầu và reset B. Ứng dụng hiển thị FPS xử lý. Webcam dùng `time.monotonic()`. Video dùng `(chỉ số frame - 1) / FPS nguồn`; nếu FPS nguồn không hợp lệ, ứng dụng thử timestamp nội dung từ OpenCV và dừng với lỗi rõ ràng nếu timestamp không tăng. Tốc độ xử lý nhanh/chậm không thay đổi thời gian nội dung của video. Nếu khoảng cách hai frame lớn hơn `--max-gap-seconds`, B cần cắt chuỗi nhắm; app cảnh báo trường hợp FPS video thấp hơn giới hạn này. Chỉ tăng tham số sau khi xác nhận với B và xem đặc tính video, vì tăng quá cao có thể nối qua đoạn mất dữ liệu.
+
+## Kiểm tra và xử lý lỗi
+
+```sh
+python -m compileall -q app.py src scripts
+python -m unittest discover -s tests
+```
+
+Lệnh unittest áp dụng khi B đã bàn giao `tests/test_drowsiness.py`. `Cannot open camera` nghĩa là cần kiểm tra chỉ số, quyền camera hoặc ứng dụng khác đang sử dụng. `Video file not found` và `Model file not found` cho biết đường dẫn sai. `A/B backend unavailable` nghĩa là còn thiếu file hoặc chữ ký hàm A/B không khớp hợp đồng; không sửa interface chung trước khi cả nhóm thống nhất. Nếu webcam xử lý chậm hơn `max_gap_seconds`, B sẽ reset chuỗi liên tục; kiểm tra FPS hiển thị và điều chỉnh tham số có chủ đích.
+
+Mỗi lần thoát, app đóng âm thanh, gọi `FaceAnalyzer.close()`, nhả `VideoCapture` và đóng cửa sổ OpenCV. Không commit `.venv`, `__pycache__`, video cá nhân hay file model lớn.

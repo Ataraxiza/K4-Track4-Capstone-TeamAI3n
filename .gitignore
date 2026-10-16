@@ -1,0 +1,14 @@
+.venv/
+.venv-local/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.task
+*.tflite
+*.onnx
+*.mp4
+*.avi
+*.mov
+*.mkv
