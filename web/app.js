@@ -6,9 +6,13 @@ const ui = {
   left: $("earLeft"), right: $("earRight"), duration: $("closedDuration"),
   camera: $("cameraBtn"), videoButton: $("videoBtn"), file: $("videoFile"), stop: $("stopSourceBtn"),
   record: $("recordBtn"), stopRecord: $("stopRecordBtn"), download: $("downloadLink"),
-  form: $("configForm"), cooldown: $("cooldownInput"), mockPanel: $("mockPanel"), message: $("message"),
+  form: $("configForm"), cooldown: $("cooldownInput"), mockPanel: $("mockPanel"), configNote: $("configNote"), message: $("message"),
 };
 const ctx = ui.stage.getContext("2d");
+const analysisCanvas = document.createElement("canvas");
+analysisCanvas.width = 480;
+analysisCanvas.height = 270;
+const analysisContext = analysisCanvas.getContext("2d");
 
 let mode = "mock";
 let sourceKind = null;
@@ -196,8 +200,13 @@ async function analyzeFrame() {
   const requestGeneration = generation;
   const payload = new FormData();
   payload.append("timestamp", String(sourceTimestamp()));
-  payload.append("mock_status", mockStatus);
   try {
+    if (mode === "real") {
+      paintVideo(analysisContext, analysisCanvas.width, analysisCanvas.height);
+      const blob = await new Promise((resolve) => analysisCanvas.toBlob(resolve, "image/jpeg", 0.78));
+      if (!blob) throw new Error("Không tạo được JPEG từ webcam/video.");
+      payload.append("frame", blob, "frame.jpg");
+    } else payload.append("mock_status", mockStatus);
     const response = await fetch("/api/analyze", {method: "POST", body: payload});
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
@@ -209,25 +218,30 @@ async function analyzeFrame() {
   }
 }
 
-function drawFrame(now) {
-  ctx.fillStyle = "#071018";
-  ctx.fillRect(0, 0, ui.stage.width, ui.stage.height);
+function paintVideo(target, canvasWidth, canvasHeight) {
+  target.fillStyle = "#071018";
+  target.fillRect(0, 0, canvasWidth, canvasHeight);
   if (sourceKind && ui.video.readyState >= 2) {
     const sourceWidth = ui.video.videoWidth || 960;
     const sourceHeight = ui.video.videoHeight || 540;
-    const scale = Math.min(ui.stage.width / sourceWidth, ui.stage.height / sourceHeight);
+    const scale = Math.min(canvasWidth / sourceWidth, canvasHeight / sourceHeight);
     const width = sourceWidth * scale;
     const height = sourceHeight * scale;
-    const x = (ui.stage.width - width) / 2;
-    const y = (ui.stage.height - height) / 2;
-    ctx.save();
+    const x = (canvasWidth - width) / 2;
+    const y = (canvasHeight - height) / 2;
+    target.save();
     if (sourceKind === "camera") {
-      ctx.translate(ui.stage.width, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(ui.video, x, y, width, height);
-    } else ctx.drawImage(ui.video, x, y, width, height);
-    ctx.restore();
-  } else {
+      target.translate(canvasWidth, 0);
+      target.scale(-1, 1);
+      target.drawImage(ui.video, x, y, width, height);
+    } else target.drawImage(ui.video, x, y, width, height);
+    target.restore();
+  }
+}
+
+function drawFrame(now) {
+  paintVideo(ctx, ui.stage.width, ui.stage.height);
+  if (!sourceKind || ui.video.readyState < 2) {
     ctx.strokeStyle = "#324755";
     ctx.lineWidth = 2;
     ctx.strokeRect(64, 58, ui.stage.width - 128, ui.stage.height - 116);
@@ -239,6 +253,14 @@ function drawFrame(now) {
   }
   if (result && sourceKind) {
     const color = result.status === "DROWSY" ? "#ff6573" : result.status === "NORMAL" ? "#dcfa69" : "#ffc76e";
+    if (mode === "real") {
+      ctx.fillStyle = color;
+      for (const point of [...(result.left_eye_points || []), ...(result.right_eye_points || [])]) {
+        ctx.beginPath();
+        ctx.arc(point[0] * 2, point[1] * 2, 3.5, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    }
     ctx.fillStyle = "#071018df";
     ctx.fillRect(0, ui.stage.height - 94, ui.stage.width, 94);
     ctx.fillStyle = color;
@@ -316,7 +338,7 @@ async function saveConfig(event) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
     await resetSession();
-    message("Đã lưu cấu hình mock và reset trạng thái. Chỉ cooldown ảnh hưởng âm báo.");
+    message(mode === "mock" ? "Đã lưu cấu hình mock và reset trạng thái." : "Đã áp dụng ngưỡng nhận diện và reset trạng thái.");
   } catch (error) { message(`Cấu hình lỗi: ${error.message}`, true); }
 }
 
@@ -327,6 +349,7 @@ async function initialize() {
     mode = data.mode;
     ui.mode.textContent = mode === "mock" ? "MÔ PHỎNG · CHƯA NHẬN DIỆN" : "NHẬN DIỆN THẬT";
     ui.mockPanel.hidden = mode !== "mock";
+    ui.configNote.textContent = mode === "mock" ? "Mock lưu giá trị; chỉ cooldown điều khiển âm báo" : "Ngưỡng EAR, thời gian và khoảng trống điều khiển nhận diện";
     for (const [key, value] of Object.entries(data.settings)) ui.form.elements.namedItem(key).value = value;
     message(mode === "mock" ? "Đang ở chế độ mô phỏng. Mở nguồn rồi chọn trạng thái để thử." : "Backend A/B sẵn sàng. Mở nguồn để bắt đầu.");
   } catch (error) { message(`Không kết nối được localhost: ${error.message}`, true); }
@@ -355,5 +378,6 @@ document.querySelectorAll("[data-mock]").forEach((button) => button.addEventList
     } catch (_) { message("Không kết nối được Python server.", true); }
   }
 }));
-ui.video.addEventListener("ended", () => { ui.live.textContent = "VIDEO · ĐÃ HẾT"; message("Video đã hết. Bạn có thể dừng quay để tải bản ghi."); });
+ui.video.addEventListener("seeking", resetSession);
+ui.video.addEventListener("ended", () => { stopAlarm(); ui.live.textContent = "VIDEO · ĐÃ HẾT"; message("Video đã hết. Bạn có thể dừng quay để tải bản ghi."); });
 initialize();

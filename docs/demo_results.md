@@ -1,6 +1,6 @@
 # Kết quả kiểm tra demo
 
-Ngày kiểm tra: 2026-10-16. Môi trường: Windows, Python 3.10.9; Python hiện có `cv2` 4.11.0, NumPy 1.23.1, pygame-ce 2.5.7. `mediapipe` chưa có trong Python hiện tại. Các thử nghiệm mock dùng `src/contracts.py` thật, không thay thế kết quả A/B thật.
+Ngày kiểm tra: 2026-10-16. Môi trường: Windows, Python 3.10.9; Python chung có `cv2` 4.11.0, NumPy 1.23.1, pygame-ce 2.5.7; `.venv-local` có MediaPipe 0.10.21 và protobuf 4.25.8. Các thử nghiệm mock dùng `src/contracts.py` thật. Kết quả kiểm tra webcam bằng người dùng được ghi riêng, không suy ra từ ảnh đen hay landmark giả.
 
 | Mục | Trạng thái | Lệnh hoặc cách chạy | Kết quả thực tế |
 | --- | --- | --- | --- |
@@ -10,8 +10,8 @@ Ngày kiểm tra: 2026-10-16. Môi trường: Windows, Python 3.10.9; Python hi�
 | C1.4 CLI và lỗi | Đã kiểm tra một phần | `python app.py --help`; `python app.py --video missing.avi`; `python app.py` | Help có đủ tham số; video thiếu báo rõ; đường chạy chính báo thiếu A/B đúng thực tế. Chưa thử webcam thật. |
 | C1.5 timestamp video | Đã kiểm tra bằng A/B giả | Tạo AVI 5 FPS, monkeypatch A/B, gọi `app.run()` | Bốn timestamp `0.0, 0.2, 0.4, 0.6`; `max_gap_seconds=0.5` được truyền nguyên vào B giả. |
 | C1.5 tua lại video | Đã kiểm tra bằng A/B giả | Tạo AVI 2 FPS, gửi phím `R` rồi `Q` cho `app.run()` | Timestamp `0.0, 0.0, 0.5`; `B.reset()` được gọi một lần khi tua lại. |
-| C1.6 cài dependency | Đã kiểm tra phân giải, chưa cài đủ | `.\.venv\Scripts\python.exe -X utf8 -m pip install --dry-run -r requirements.txt` | Phân giải thành công trên Python 3.10 Windows trong `.venv` sạch; chưa tải/cài toàn bộ wheel lớn nên chưa xác nhận import MediaPipe. Pip không có `-X utf8` gặp lỗi mã hóa vì đường dẫn repo chứa tiếng Việt; README đã dùng lệnh đúng. |
-| C1.6 A/B thật | Chưa kiểm tra tích hợp | `rg --files src scripts docs tests`; kiểm tra `origin/feat/A_vision` | Checkout C chưa có `src/vision.py`, `src/drowsiness.py`, `tests/test_drowsiness.py`. Nhánh mới có script root nhưng lệch interface, nên chưa thể nghiệm thu end-to-end. |
+| C1.6 cài dependency | MediaPipe chạy trong `.venv-local` | `.\.venv-local\Scripts\python.exe -X utf8 -c "from web_app import create_app; a=create_app('real'); a.config['pipeline'].close()"` | Face Mesh khởi tạo và đóng thành công với MediaPipe 0.10.21, protobuf 4.25.8. Adapter C đặt resource qua đường dẫn ASCII tạm vì native MediaPipe không mở được model tại repo chứa tiếng Việt. |
+| C1.6 A/B thật | B tích hợp vào localhost, A qua adapter C | `python -X utf8 -m unittest discover -s tests -v` và POST `/api/analyze` trên server real | 2/2 test adapter qua B thật đạt; ảnh JPEG đen qua MediaPipe thật trả HTTP 200, `NO_FACE`. Chưa xác nhận EAR trên mặt người thật. CLI `app.py` vẫn chờ `src/vision.py` của A. |
 
 ## Tình huống nghiệm thu bắt buộc
 
@@ -20,17 +20,17 @@ Ngày kiểm tra: 2026-10-16. Môi trường: Windows, Python 3.10.9; Python hi�
 | Mắt mở bình thường → NORMAL, không âm thanh | Chưa kiểm tra với A/B thật hoặc webcam |
 | Chớp ngắn → EYES_CLOSED rồi NORMAL, không âm thanh | Chưa kiểm tra với A/B thật |
 | Nhắm đủ lâu → DROWSY, hình ảnh và âm thanh | UI/audio được kiểm tra riêng bằng mock; chưa kiểm tra tích hợp thật |
-| Mở mắt sau cảnh báo → reset | Audio dừng bằng mock; chưa kiểm tra B thật |
-| Mất mặt hoặc EAR lỗi → NO_FACE | UI mock hiển thị; chưa kiểm tra B thật |
-| Video gián đoạn hoặc timestamp quay lại → cắt chuỗi | Tua lại gọi `B.reset()` trên giả; chưa kiểm tra B thật hoặc video lỗi timestamp |
+| Mở mắt sau cảnh báo → reset | B thật trả NORMAL trong test với landmark giả; loa/browser chưa kiểm tra |
+| Mất mặt hoặc EAR lỗi → NO_FACE | MediaPipe thật với JPEG đen trả NO_FACE; B thật nhận mất mặt trong test |
+| Video gián đoạn hoặc timestamp quay lại → cắt chuỗi | B thật cắt khi gap 0,6 s > 0,5 s trong test; browser gọi reset khi seek; chưa thử video thật |
 | Âm thanh lỗi → video và hình ảnh tiếp tục | Thiếu WAV đã kiểm tra bằng mock; chưa kiểm tra hỏng thiết bị thật |
 | Thoát rồi mở lại → camera dùng lại, không còn tiến trình | Chưa kiểm tra webcam thật |
 
 ## Việc cần nhóm xác nhận trước khi chốt
 
 1. A bàn giao `FaceAnalyzer(model_path=None)`, `analyze(frame, timestamp)` và `close()` đúng hợp đồng; ghi rõ có cần model ngoài hay không.
-2. B bàn giao `DrowsinessDetector(..., max_gap_seconds=0.5)`, `update()` và `reset()`; xác nhận B cắt chuỗi khi khoảng cách timestamp lớn hơn giá trị này và khi timestamp quay lại.
-3. Sau khi ghép từng nhánh, chạy lại unittest B, video và webcam thật; hoàn thiện bảng nghiệm thu trên đúng máy demo, ghi cấu hình và giới hạn quan sát được.
+2. B đã có `DrowsinessDetector(..., max_gap_seconds=0.5)`, `update()` và `reset()` trong `c98fa8a`; test xác nhận cắt chuỗi khi gap lớn hơn ngưỡng. Nhóm cần thống nhất merge A/B vào nhánh chính.
+3. Thử video và webcam có mặt thật trong browser, rồi hoàn thiện bảng nghiệm thu trên đúng máy demo.
 
 ## Kiểm tra nhánh `origin/feat/A_vision` (`e119231`)
 
@@ -63,3 +63,18 @@ Môi trường cục bộ có Flask 3.1.2 trên Python 3.10.9. Trang localhost d
 | Flask test client: POST `/api/config`, `/api/reset` | Cấu hình hợp lệ và reset trả HTTP 200; `max_gap_seconds=0` trả HTTP 400. |
 | `python -X utf8 web_app.py`, rồi GET `http://127.0.0.1:8765/` và POST `.../api/analyze` | Server thật trả HTTP 200; DROWSY trả EAR `0.14`, thời gian `2.3`, `should_alert=true`. |
 | Mở webcam, nghe âm báo và quay WebM bằng browser | Chưa kiểm tra tương tác trên máy người dùng; cần cho phép webcam và thử nút quay/tải trong Chrome hoặc Edge. |
+
+## Localhost nhận diện thật sau phản hồi webcam
+
+Nguồn A/B tại `origin/feat/A_vision` commit `c98fa8a`: đưa nguyên file `drowsiness_detector.py` và `src/drowsiness.py` vào nhánh C, adapter `src/web_vision_adapter.py` dùng Face Mesh và hàm EAR của A với tọa độ pixel, rồi gọi B thật. `src/vision.py` vẫn chưa có; CLI `app.py` chưa thể dùng A trực tiếp. Không sửa nội dung hai file A/B.
+
+| Kiểm tra | Kết quả thực tế |
+| --- | --- |
+| `.\.venv-local\Scripts\python.exe -X utf8 -m pip install --no-deps --timeout 300 mediapipe==0.10.21` | Tải xong wheel 51 MB; lần trước timeout sau 4,3 MB, lần này cài thành công. |
+| `.\.venv-local\Scripts\python.exe -X utf8 -m pip install --no-deps protobuf==4.25.8` | Cài riêng vào môi trường ảo, không gỡ protobuf 6.33.6 toàn cục. |
+| Tạo `FaceMesh` trực tiếp từ package dưới repo | `FileNotFoundError` cho `face_landmark_front_cpu.binarypb` dù file tồn tại: đường dẫn native có tiếng Việt. Adapter C tự stage package sang thư mục tạm ASCII; tạo FaceMesh và xử lý ảnh đen thành công. |
+| `.\.venv-local\Scripts\python.exe -X utf8 -c "from web_app import create_app; a=create_app('real'); a.config['pipeline'].close()"` | Khởi tạo và đóng MediaPipe Face Mesh thành công; `/api/health` trả `mode=real`. |
+| `python -X utf8 -m unittest discover -s tests -v` | 2/2 test C đạt: JPEG/landmark giả đi qua adapter và B thật; `DROWSY`, `NORMAL`, `NO_FACE`, gap > 0,5 s và frame lỗi được xử lý. |
+| POST JPEG đen tới `http://127.0.0.1:8765/api/analyze` | HTTP 200; `NO_FACE`, EAR null, `should_alert=false` qua MediaPipe thật. |
+| Người dùng tải lại localhost và mở webcam | Người dùng xác nhận EAR hiện số và trạng thái thay đổi khi nhắm mắt. Chưa có xác nhận riêng về âm báo DROWSY hoặc file WebM. |
+| `node --check web/app.js` | Đạt. Browser automation không có trong phiên này; việc nghe loa và xem file WebM cần kiểm tra trên trình duyệt của người dùng. |

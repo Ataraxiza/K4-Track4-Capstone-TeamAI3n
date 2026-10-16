@@ -4,7 +4,7 @@ Demo học tập dùng EAR từ webcam hoặc video để hiển thị bốn tr�
 
 ## Trạng thái
 
-Commit nền `0eada84` tạo [hợp đồng dữ liệu](src/contracts.py). Module C có UI mock, âm thanh, vòng lặp OpenCV và localhost để quay video mô phỏng. Module A (`src/vision.py`) và B (`src/drowsiness.py`) chưa có trong checkout này; lệnh `python app.py` sẽ báo thiếu backend cho tới khi hai module được ghép. Xem [kết quả kiểm tra](docs/demo_results.md) để phân biệt mock và demo thật.
+Commit nền `0eada84` tạo [hợp đồng dữ liệu](src/contracts.py). Localhost mặc định nhận diện thật: adapter C dùng Face Mesh và hàm EAR từ `drowsiness_detector.py` của A, rồi truyền `FaceObservation` cho `src/drowsiness.py` của B. Hai file A/B được chép nguyên vẹn từ `origin/feat/A_vision` (`c98fa8a`); C không sửa logic của họ. CLI OpenCV `app.py` vẫn chờ A bàn giao `src/vision.py` đúng hợp đồng. Xem [kết quả kiểm tra](docs/demo_results.md) để biết phần nào đã chạy thật.
 
 ## Cài đặt
 
@@ -26,7 +26,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-`requirements.txt` dùng MediaPipe 0.10.14 và OpenCV contrib 4.11.0.86 làm cặp dự kiến cho A. Lệnh phân giải dependency trong `.venv` sạch đã thành công trên Python 3.10 Windows, nhưng lượt cài đặt/import MediaPipe chưa hoàn tất; nhóm cần xác nhận trước khi chốt toàn bộ version. Trên máy có đường dẫn tiếng Việt, dùng `-X utf8` cho lệnh pip để tránh lỗi mã hóa console. Không cài song song `opencv-python` và `opencv-contrib-python` trong cùng môi trường vì cùng cung cấp `cv2`.
+`requirements.txt` dùng MediaPipe 0.10.21 theo nhánh A/B và OpenCV contrib 4.11.0.86. Trên máy có đường dẫn tiếng Việt, dùng `-X utf8` cho lệnh pip để tránh lỗi mã hóa console. Không cài song song `opencv-python` và `opencv-contrib-python` trong cùng môi trường vì cùng cung cấp `cv2`.
 
 ## Xem UI bằng mock
 
@@ -40,23 +40,25 @@ Script lần lượt hiển thị đủ bốn trạng thái từ `FaceObservatio
 python -m scripts.demo_app_mock --output-dir mock-preview
 ```
 
-## Localhost để thử webcam/video và quay demo mock
+## Localhost nhận diện webcam/video và quay demo
 
-Trên máy Windows hiện tại, Python 3.10.9 đã có Flask 3.1.2. Nếu Flask chưa có, cài riêng dependency nhẹ của giao diện web:
+Trên máy Windows hiện tại, Python 3.10.9 đã có Flask 3.1.2, OpenCV 4.11.0 và NumPy 1.23.1. Tạo môi trường ảo dùng những gói sẵn có trên máy, rồi cài MediaPipe riêng trong môi trường này:
 
 ```powershell
-python -X utf8 -m pip install -r requirements-web.txt
+py -3.10 -m venv --system-site-packages .venv-local
+.\.venv-local\Scripts\python.exe -X utf8 -m pip install -r requirements-web.txt
+.\.venv-local\Scripts\python.exe -X utf8 -m pip install --no-deps -r requirements-vision-local.txt
 ```
 
 Khởi động server từ root repo:
 
 ```powershell
-python web_app.py
+.\.venv-local\Scripts\python.exe -X utf8 web_app.py
 ```
 
-Mở **http://127.0.0.1:8765** trong Chrome hoặc Edge trên cùng máy. Cho phép quyền webcam khi trình duyệt hỏi, hoặc chọn một file video. Bấm các trạng thái `NORMAL`, `EYES_CLOSED`, `DROWSY`, `NO_FACE` để thử hình ảnh và âm báo. Bấm **Bắt đầu quay**, **Dừng quay**, rồi **Tải video đã quay** để lưu WebM. Bản ghi là khung hình đã có nhãn, và có âm báo nếu trình duyệt hỗ trợ thu luồng âm thanh của trang. Có thể chọn cổng khác bằng `python web_app.py --port 8766`; `Ctrl+C` dừng server.
+Mở **http://127.0.0.1:8765** trong Chrome hoặc Edge trên cùng máy và tải lại trang nếu đang mở bản mock cũ. Cho phép webcam hoặc chọn file video. Trang gửi JPEG từng frame tới Python trên `127.0.0.1` và trả EAR/trạng thái thật, không gửi lên Internet. Thử nhìn camera với mắt mở, nhắm mắt ngắn, rồi nhắm liên tục quá thời gian đã đặt. Bấm **Bắt đầu quay**, **Dừng quay**, rồi **Tải video đã quay** để lưu WebM gồm hình có nhãn và âm báo nếu trình duyệt hỗ trợ. Có thể chọn cổng khác bằng `--port 8766`; `Ctrl+C` dừng server.
 
-Trang ghi rõ **MÔ PHỎNG**: webcam/video chỉ là nền hình; trạng thái được chọn thủ công, chưa nhận diện buồn ngủ thật. Browser giữ hình ảnh cục bộ và chỉ gửi timestamp cùng tên trạng thái tới Python localhost. Các ngưỡng EAR/thời gian được lưu cho phiên mock; chỉ cooldown điều khiển âm báo. `requirements-web.txt` ghim Flask theo phiên bản đã xác nhận trên máy này và không đòi MediaPipe.
+Ngưỡng EAR, số giây nhắm và `max_gap_seconds` được áp dụng trực tiếp vào B khi bấm **Áp dụng**. Webcam dùng timestamp tăng đều của trình duyệt; video dùng `currentTime` của file. Tua video reset B. Khi mất mặt, EAR lỗi hoặc hai frame cách nhau quá `max_gap_seconds`, B cắt chuỗi nhắm; nếu MediaPipe xử lý chậm hơn giới hạn, tăng giá trị này có chủ đích. Âm báo phát không chặn video, có cooldown và không chồng tiếng. Để chỉ kiểm tra giao diện và âm thanh bằng trạng thái chọn tay, chạy `.\.venv-local\Scripts\python.exe -X utf8 web_app.py --mode mock`; chế độ này được gắn nhãn **MÔ PHỎNG**. Trên máy này, MediaPipe native không mở được model dưới đường dẫn repo có tiếng Việt; adapter C tự sao chép package vào thư mục tạm có tên ASCII ở lần chạy đầu. TensorFlow cài toàn cục không được dùng cho Face Mesh và được bỏ qua khi import MediaPipe.
 
 ## Chạy demo khi A/B đã có
 

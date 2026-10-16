@@ -57,7 +57,7 @@
 
     <section class="lower">
       <div class="panel config-panel">
-        <div class="section-head"><span class="section-kicker">04 / CẤU HÌNH</span><span>Mock lưu giá trị; chỉ cooldown điều khiển âm báo</span></div>
+        <div class="section-head"><span class="section-kicker">04 / CẤU HÌNH</span><span id="configNote">Ngưỡng nhận diện và âm báo</span></div>
         <form id="configForm" class="config-grid">
           <label>Ngưỡng EAR<input name="ear_threshold" type="number" min="0.01" max="1" step="0.01" value="0.22" required></label>
           <label>Nhắm mắt (giây)<input name="closed_seconds" type="number" min="0.1" step="0.1" value="2.0" required></label>
@@ -77,7 +77,7 @@
         </div>
       </div>
     </section>
-    <footer><span id="message" role="status" aria-live="polite">Đang khởi tạo trang…</span><span>Chạy cục bộ tại 127.0.0.1 · Không tải video lên mạng</span></footer>
+    <footer><span id="message" role="status" aria-live="polite">Đang khởi tạo trang…</span><span>Frame chỉ gửi tới Python tại 127.0.0.1 · Video quay lưu trên máy</span></footer>
   </main>
 </body>
 </html>

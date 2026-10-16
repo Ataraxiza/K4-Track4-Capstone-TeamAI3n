@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import math
 import threading
 from pathlib import Path
@@ -29,11 +30,16 @@ def _number(value: object, name: str, *, positive: bool = True) -> float:
 
 
 def _payload(observation: FaceObservation, result: DrowsinessResult) -> dict:
+    def safe_ear(value: float | None) -> float | None:
+        return value if value is not None and math.isfinite(value) else None
+
     return {
         "timestamp": observation.timestamp,
         "face_detected": observation.face_detected,
-        "ear_left": observation.ear_left,
-        "ear_right": observation.ear_right,
+        "ear_left": safe_ear(observation.ear_left),
+        "ear_right": safe_ear(observation.ear_right),
+        "left_eye_points": observation.left_eye_points,
+        "right_eye_points": observation.right_eye_points,
         "status": result.status,
         "closed_duration": result.closed_duration,
         "should_alert": result.should_alert,
@@ -50,21 +56,28 @@ class MockPipeline:
     def reset(self) -> None:
         pass
 
-    def analyze(self, timestamp: float, status: str, _frame: bytes | None) -> dict:
+    def analyze(self, timestamp: float, status: str, _frame: bytes | None) -> tuple[FaceObservation, DrowsinessResult]:
         if status not in STATUSES:
             raise ValueError(f"Unknown mock status: {status}")
         ear = {"NORMAL": 0.31, "EYES_CLOSED": 0.15, "DROWSY": 0.14, "NO_FACE": None}[status]
         duration = {"NORMAL": 0.0, "EYES_CLOSED": 0.8, "DROWSY": 2.3, "NO_FACE": 0.0}[status]
         observation = FaceObservation(timestamp, status != "NO_FACE", ear, ear)
         result = DrowsinessResult(status, duration, status == "DROWSY")
-        return _payload(observation, result)
+        return observation, result
 
     def close(self) -> None:
         pass
 
 
-def create_app() -> Flask:
-    pipeline = MockPipeline()
+def create_app(mode: str = "real") -> Flask:
+    if mode == "real":
+        from src.web_vision_adapter import RealPipeline
+
+        pipeline = RealPipeline(DEFAULTS)
+    elif mode == "mock":
+        pipeline = MockPipeline()
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
     lock = threading.Lock()
     app = Flask(__name__, static_folder=str(WEB), static_url_path="/static")
     app.config["pipeline"] = pipeline
@@ -75,7 +88,7 @@ def create_app() -> Flask:
 
     @app.get("/api/health")
     def health():
-        return jsonify({"mode": "mock", "settings": pipeline.settings})
+        return jsonify({"mode": mode, "settings": pipeline.settings})
 
     @app.post("/api/config")
     def config():
@@ -107,10 +120,10 @@ def create_app() -> Flask:
             if frame_bytes and len(frame_bytes) > 2_000_000:
                 raise ValueError("JPEG frame exceeds 2 MB")
             with lock:
-                result = pipeline.analyze(timestamp, status, frame_bytes)
+                observation, result = pipeline.analyze(timestamp, status, frame_bytes)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
-        return jsonify(result)
+        return jsonify(_payload(observation, result))
 
     return app
 
@@ -118,11 +131,16 @@ def create_app() -> Flask:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--mode", choices=("real", "mock"), default="real")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
-    app = create_app()
-    print(f"Local mock demo: http://127.0.0.1:{args.port}", flush=True)
+    try:
+        app = create_app(args.mode)
+    except (ImportError, OSError, RuntimeError) as exc:
+        parser.exit(1, f"Real detection unavailable: {exc}\nInstall MediaPipe or use --mode mock.\n")
+    print(f"Local {args.mode} demo: http://127.0.0.1:{args.port}", flush=True)
+    logging.getLogger("werkzeug").setLevel(logging.ERROR)
     try:
         app.run(host="127.0.0.1", port=args.port, debug=False, use_reloader=False, threaded=True)
     finally:
