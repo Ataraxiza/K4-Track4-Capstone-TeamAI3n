@@ -1,4 +1,4 @@
-# Python 3.10+; versions will be pinned after the team verifies imports together.
+# Full CLI demo on Python 3.10+; localhost setup is in README.md.
 numpy>=1.23,<2
 opencv-contrib-python==4.11.0.86
 mediapipe==0.10.21

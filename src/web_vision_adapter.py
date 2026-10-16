@@ -1,11 +1,11 @@
-"""Bridge the A Face Mesh demo and B detector to the localhost C UI."""
+"""Bridge A's Face Mesh demo to the C localhost and CLI interfaces."""
 
 from __future__ import annotations
 
-import math
 import hashlib
 import importlib.metadata
 import importlib.util
+import math
 import os
 from pathlib import Path
 import shutil
@@ -54,8 +54,12 @@ from src.contracts import DrowsinessResult, FaceObservation
 from src.drowsiness import DrowsinessDetector
 
 
-class RealPipeline:
-    def __init__(self, settings: dict[str, float]) -> None:
+class FaceAnalyzer:
+    """C adapter around A's landmark selection and EAR calculation."""
+
+    def __init__(self, model_path: str | None = None) -> None:
+        if model_path is not None:
+            raise ValueError("A's Face Mesh uses a bundled model; --model is not supported")
         if not hasattr(mp, "solutions"):
             raise RuntimeError("MediaPipe solutions.FaceMesh is unavailable in this installation")
         self.mesh = mp.solutions.face_mesh.FaceMesh(
@@ -64,22 +68,7 @@ class RealPipeline:
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5,
         )
-        self.configure(settings)
-
-    def configure(self, settings: dict[str, float]) -> None:
-        detector = DrowsinessDetector(**settings)
-        self.settings = settings.copy()
-        self.detector = detector
-
-    def reset(self) -> None:
-        self.detector.reset()
-
-    def analyze(self, timestamp: float, _status: str, frame: bytes | None) -> tuple[FaceObservation, DrowsinessResult]:
-        if not frame:
-            raise ValueError("Missing JPEG frame")
-        image = cv2.imdecode(np.frombuffer(frame, dtype=np.uint8), cv2.IMREAD_COLOR)
-        if image is None:
-            raise ValueError("Invalid JPEG frame")
+    def analyze(self, image: np.ndarray, timestamp: float) -> FaceObservation:
         height, width = image.shape[:2]
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         rgb.flags.writeable = False
@@ -102,7 +91,7 @@ class RealPipeline:
                 tuple((round(x), round(y)) for x, y in left),
                 tuple((round(x), round(y)) for x, y in right),
             )
-        return observation, self.detector.update(observation)
+        return observation
 
     @staticmethod
     def _eye(landmarks: list, indices: tuple[int, ...], width: int, height: int) -> list[tuple[float, float]]:
@@ -110,3 +99,29 @@ class RealPipeline:
 
     def close(self) -> None:
         self.mesh.close()
+
+
+class RealPipeline:
+    def __init__(self, settings: dict[str, float]) -> None:
+        self.analyzer = FaceAnalyzer()
+        self.configure(settings)
+
+    def configure(self, settings: dict[str, float]) -> None:
+        detector = DrowsinessDetector(**settings)
+        self.settings = settings.copy()
+        self.detector = detector
+
+    def reset(self) -> None:
+        self.detector.reset()
+
+    def analyze(self, timestamp: float, _status: str, frame: bytes | None) -> tuple[FaceObservation, DrowsinessResult]:
+        if not frame:
+            raise ValueError("Missing JPEG frame")
+        image = cv2.imdecode(np.frombuffer(frame, dtype=np.uint8), cv2.IMREAD_COLOR)
+        if image is None:
+            raise ValueError("Invalid JPEG frame")
+        observation = self.analyzer.analyze(image, timestamp)
+        return observation, self.detector.update(observation)
+
+    def close(self) -> None:
+        self.analyzer.close()
