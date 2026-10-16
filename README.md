@@ -4,7 +4,7 @@ Demo học tập dùng EAR từ webcam hoặc video để hiển thị bốn tr�
 
 ## Trạng thái
 
-Commit nền `0eada84` tạo [hợp đồng dữ liệu](src/contracts.py). Localhost mặc định nhận diện thật: adapter C dùng Face Mesh và hàm EAR từ `drowsiness_detector.py` của A, rồi truyền `FaceObservation` cho `src/drowsiness.py` của B. Hai file A/B được chép nguyên vẹn từ `origin/feat/A_vision` (`c98fa8a`); C không sửa logic của họ. CLI OpenCV `app.py` vẫn chờ A bàn giao `src/vision.py` đúng hợp đồng. Xem [kết quả kiểm tra](docs/demo_results.md) để biết phần nào đã chạy thật.
+Commit nền `0eada84` tạo [hợp đồng dữ liệu](src/contracts.py). Localhost và CLI C dùng adapter Face Mesh cùng hàm EAR từ `drowsiness_detector.py` của A, rồi truyền `FaceObservation` cho `src/drowsiness.py` của B. Mã A/B được giữ nguyên từ `feat/A_vision` (`c98fa8a`); C không sửa logic của họ. Demo độc lập của A chạy bằng `drowsiness_detector.py`. A chưa cung cấp `src/vision.py` đúng hợp đồng, nên CLI C tự dùng adapter của mình. Xem [kết quả kiểm tra](docs/demo_results.md) để biết phần nào đã chạy thật.
 
 ## Cài đặt
 
@@ -27,6 +27,17 @@ python -m pip install -r requirements.txt
 ```
 
 `requirements.txt` dùng MediaPipe 0.10.21 theo nhánh A/B và OpenCV contrib 4.11.0.86. Trên máy có đường dẫn tiếng Việt, dùng `-X utf8` cho lệnh pip để tránh lỗi mã hóa console. Không cài song song `opencv-python` và `opencv-contrib-python` trong cùng môi trường vì cùng cung cấp `cv2`.
+
+## Demo độc lập của A
+
+Sau khi tạo `.venv-local` theo mục localhost bên dưới, chạy:
+
+```powershell
+.\.venv-local\Scripts\python.exe -X utf8 -m scripts.run_a_vision --source 0
+.\.venv-local\Scripts\python.exe -X utf8 -m scripts.run_a_vision --source recordings/demo.mp4 --ear-threshold 0.22 --closed-seconds 1.5
+```
+
+Nhấn `Q` hoặc `Esc` để thoát, `R` để reset. Wrapper C chỉ chuẩn bị đường dẫn model MediaPipe cho repo có tiếng Việt; nội dung demo A không thay đổi. A chọn khuôn mặt có khung bao lớn nhất khi thấy nhiều người. Xem [tài liệu A](docs/vision.md) và [tài liệu B](docs/logic.md) để biết EAR, quy tắc trạng thái và giới hạn. Demo độc lập A dùng `time.monotonic()` cho cả file video và có tiếng bíp đồng bộ; localhost C dùng thời gian nội dung video và âm báo không chặn khung hình.
 
 ## Xem UI bằng mock
 
@@ -60,16 +71,20 @@ Mở **http://127.0.0.1:8765** trong Chrome hoặc Edge trên cùng máy và t�
 
 Ngưỡng EAR, số giây nhắm và `max_gap_seconds` được áp dụng trực tiếp vào B khi bấm **Áp dụng**. Webcam dùng timestamp tăng đều của trình duyệt; video dùng `currentTime` của file. Tua video reset B. Khi mất mặt, EAR lỗi hoặc hai frame cách nhau quá `max_gap_seconds`, B cắt chuỗi nhắm; nếu MediaPipe xử lý chậm hơn giới hạn, tăng giá trị này có chủ đích. Âm báo phát không chặn video, có cooldown và không chồng tiếng. Để chỉ kiểm tra giao diện và âm thanh bằng trạng thái chọn tay, chạy `.\.venv-local\Scripts\python.exe -X utf8 web_app.py --mode mock`; chế độ này được gắn nhãn **MÔ PHỎNG**. Trên máy này, MediaPipe native không mở được model dưới đường dẫn repo có tiếng Việt; adapter C tự sao chép package vào thư mục tạm có tên ASCII ở lần chạy đầu. TensorFlow cài toàn cục không được dùng cho Face Mesh và được bỏ qua khi import MediaPipe.
 
-## Chạy demo khi A/B đã có
+## Chạy CLI tích hợp A/B
 
 ```sh
 python app.py --camera 0
 python app.py --video path/to/input.mp4
 python app.py --video path/to/input.mp4 --ear-threshold 0.22 --closed-seconds 2 --max-gap-seconds 0.5 --cooldown-seconds 3
-python app.py --camera 0 --model path/to/model.task --sound assets/alarm.wav
+python app.py --camera 0 --sound assets/alarm.wav
 ```
 
-`--model` là tùy chọn; A quyết định có cần file model ngoài hay không. Khi dùng, đặt model tại đường dẫn tương đối hoặc tuyệt đối của máy chạy; không commit model lớn. Xem `docs/vision.md` khi A bàn giao để biết định dạng và nguồn model cụ thể. Âm thanh mặc định là `assets/alarm.wav`; nếu file hoặc thiết bị âm thanh lỗi, cảnh báo hình ảnh vẫn chạy và ứng dụng ghi thông báo.
+Face Mesh của A đã kèm model trong MediaPipe, nên không cần `--model`; adapter hiện báo lỗi rõ nếu truyền tham số này. Âm thanh mặc định là `assets/alarm.wav`; nếu file hoặc thiết bị âm thanh lỗi, cảnh báo hình ảnh vẫn chạy và ứng dụng ghi thông báo. Trên máy có đường dẫn repo tiếng Việt, chạy CLI bằng Python của `.venv-local` như phần localhost để adapter khắc phục lỗi đọc model native.
+
+```powershell
+.\.venv-local\Scripts\python.exe -X utf8 app.py --camera 0
+```
 
 | Tham số | Mặc định | Ý nghĩa |
 | --- | ---: | --- |
@@ -78,7 +93,7 @@ python app.py --camera 0 --model path/to/model.task --sound assets/alarm.wav
 | `--ear-threshold` | `0.22` | Ngưỡng EAR truyền cho B |
 | `--closed-seconds` | `2.0` | Thời gian nhắm mắt truyền cho B |
 | `--max-gap-seconds` | `0.5` | Khoảng cách timestamp tối đa B được phép nối chuỗi |
-| `--model` | không có | Đường dẫn model truyền cho A |
+| `--model` | không có | Chỉ dành cho backend A tương lai có model ngoài; adapter hiện không hỗ trợ |
 | `--sound` | `assets/alarm.wav` | WAV cảnh báo |
 | `--cooldown-seconds` | `3.0` | Khoảng cách tối thiểu giữa hai lần bắt đầu âm thanh |
 
@@ -91,6 +106,6 @@ python -m compileall -q app.py src scripts
 python -m unittest discover -s tests
 ```
 
-Lệnh unittest áp dụng khi B đã bàn giao `tests/test_drowsiness.py`. `Cannot open camera` nghĩa là cần kiểm tra chỉ số, quyền camera hoặc ứng dụng khác đang sử dụng. `Video file not found` và `Model file not found` cho biết đường dẫn sai. `A/B backend unavailable` nghĩa là còn thiếu file hoặc chữ ký hàm A/B không khớp hợp đồng; không sửa interface chung trước khi cả nhóm thống nhất. Nếu webcam xử lý chậm hơn `max_gap_seconds`, B sẽ reset chuỗi liên tục; kiểm tra FPS hiển thị và điều chỉnh tham số có chủ đích.
+`Cannot open camera` nghĩa là cần kiểm tra chỉ số, quyền camera hoặc ứng dụng khác đang sử dụng. `Video file not found` cho biết đường dẫn sai. `A/B backend unavailable` nghĩa là file hoặc chữ ký hàm A/B không khớp hợp đồng. Nếu webcam xử lý chậm hơn `max_gap_seconds`, B sẽ reset chuỗi liên tục; kiểm tra FPS hiển thị và điều chỉnh tham số có chủ đích.
 
 Mỗi lần thoát, app đóng âm thanh, gọi `FaceAnalyzer.close()`, nhả `VideoCapture` và đóng cửa sổ OpenCV. Không commit `.venv`, `__pycache__`, video cá nhân hay file model lớn.

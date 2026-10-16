@@ -7,11 +7,11 @@ Ngày kiểm tra: 2026-10-16. Môi trường: Windows, Python 3.10.9; Python chu
 | C1.1 hợp đồng | Đã kiểm tra | `python -X utf8 -c "from src.contracts import FaceObservation,DrowsinessResult; print(FaceObservation(0.0,False)); print(DrowsinessResult('NO_FACE',0.0,False))"` | Hai dataclass import và khởi tạo đúng; commit nền `0eada84`. |
 | C1.2 bốn trạng thái | Đã kiểm tra bằng mock | `python -m scripts.demo_app_mock --output-dir "$env:TEMP\drowsiness-mock"` | Xuất bốn PNG `normal`, `eyes_closed`, `drowsy`, `no_face`; mở xem ảnh DROWSY: EAR, trạng thái, thời gian và điểm mắt hiển thị. |
 | C1.3 phát âm thanh | Đã kiểm tra bằng mock | `SDL_AUDIODRIVER=dummy` rồi gọi `AlertManager.update()` với các timestamp 10, 10.1, 10.2, 11, 13 | Phát ở 10 và 13; không chồng âm, dừng khi NORMAL, giữ cooldown; `close()` trả tài nguyên. Thiếu WAV hoặc đặt `SDL_AUDIODRIVER=nonexistent_driver` đều chỉ ghi cảnh báo và tiếp tục. Chưa nghe trên loa thật. |
-| C1.4 CLI và lỗi | Đã kiểm tra một phần | `python app.py --help`; `python app.py --video missing.avi`; `python app.py` | Help có đủ tham số; video thiếu báo rõ; đường chạy chính báo thiếu A/B đúng thực tế. Chưa thử webcam thật. |
+| C1.4 CLI và lỗi | Đã kiểm tra với adapter A và B thật | `.\.venv-local\Scripts\python.exe -X utf8 app.py --help`; AVI đen 4 frame qua `app.run()` | CLI phân giải backend C adapter + B thật; xử lý hết 4 frame, thoát mã 0 và dọn tài nguyên. Chưa thử webcam trực tiếp qua CLI. |
 | C1.5 timestamp video | Đã kiểm tra bằng A/B giả | Tạo AVI 5 FPS, monkeypatch A/B, gọi `app.run()` | Bốn timestamp `0.0, 0.2, 0.4, 0.6`; `max_gap_seconds=0.5` được truyền nguyên vào B giả. |
 | C1.5 tua lại video | Đã kiểm tra bằng A/B giả | Tạo AVI 2 FPS, gửi phím `R` rồi `Q` cho `app.run()` | Timestamp `0.0, 0.0, 0.5`; `B.reset()` được gọi một lần khi tua lại. |
 | C1.6 cài dependency | MediaPipe chạy trong `.venv-local` | `.\.venv-local\Scripts\python.exe -X utf8 -c "from web_app import create_app; a=create_app('real'); a.config['pipeline'].close()"` | Face Mesh khởi tạo và đóng thành công với MediaPipe 0.10.21, protobuf 4.25.8. Adapter C đặt resource qua đường dẫn ASCII tạm vì native MediaPipe không mở được model tại repo chứa tiếng Việt. |
-| C1.6 A/B thật | B tích hợp vào localhost, A qua adapter C | `python -X utf8 -m unittest discover -s tests -v` và POST `/api/analyze` trên server real | 2/2 test adapter qua B thật đạt; ảnh JPEG đen qua MediaPipe thật trả HTTP 200, `NO_FACE`. Chưa xác nhận EAR trên mặt người thật. CLI `app.py` vẫn chờ `src/vision.py` của A. |
+| C1.6 A/B thật | A/B tích hợp qua adapter C | `python -X utf8 -m unittest discover -s tests -v` và POST `/api/analyze` trên server real | 21/21 test A/B/C đạt; ảnh JPEG đen qua MediaPipe thật trả HTTP 200, `NO_FACE`; người dùng xác nhận webcam có EAR và trạng thái đổi. CLI dùng adapter C vì A chưa có `src/vision.py`. |
 
 ## Tình huống nghiệm thu bắt buộc
 
@@ -29,7 +29,7 @@ Ngày kiểm tra: 2026-10-16. Môi trường: Windows, Python 3.10.9; Python chu
 ## Việc cần nhóm xác nhận trước khi chốt
 
 1. A bàn giao `FaceAnalyzer(model_path=None)`, `analyze(frame, timestamp)` và `close()` đúng hợp đồng; ghi rõ có cần model ngoài hay không.
-2. B đã có `DrowsinessDetector(..., max_gap_seconds=0.5)`, `update()` và `reset()` trong `c98fa8a`; test xác nhận cắt chuỗi khi gap lớn hơn ngưỡng. Nhóm cần thống nhất merge A/B vào nhánh chính.
+2. B đã có `DrowsinessDetector(..., max_gap_seconds=0.5)`, `update()` và `reset()` trong `c98fa8a`; test xác nhận cắt chuỗi khi gap lớn hơn ngưỡng. Merge A/B vào nhánh chính đang được kiểm tra trong nhánh tích hợp.
 3. Thử video và webcam có mặt thật trong browser, rồi hoàn thiện bảng nghiệm thu trên đúng máy demo.
 
 ## Kiểm tra nhánh `origin/feat/A_vision` (`e119231`)
@@ -66,7 +66,7 @@ Môi trường cục bộ có Flask 3.1.2 trên Python 3.10.9. Trang localhost d
 
 ## Localhost nhận diện thật sau phản hồi webcam
 
-Nguồn A/B tại `origin/feat/A_vision` commit `c98fa8a`: đưa nguyên file `drowsiness_detector.py` và `src/drowsiness.py` vào nhánh C, adapter `src/web_vision_adapter.py` dùng Face Mesh và hàm EAR của A với tọa độ pixel, rồi gọi B thật. `src/vision.py` vẫn chưa có; CLI `app.py` chưa thể dùng A trực tiếp. Không sửa nội dung hai file A/B.
+Nguồn A/B tại `origin/feat/A_vision` commit `c98fa8a`: đưa nguyên file `drowsiness_detector.py` và `src/drowsiness.py` vào nhánh C, adapter `src/web_vision_adapter.py` dùng Face Mesh và hàm EAR của A với tọa độ pixel, rồi gọi B thật. `src/vision.py` vẫn chưa có; CLI `app.py` dùng cùng adapter C. Không sửa nội dung hai file A/B.
 
 | Kiểm tra | Kết quả thực tế |
 | --- | --- |
@@ -78,3 +78,25 @@ Nguồn A/B tại `origin/feat/A_vision` commit `c98fa8a`: đưa nguyên file `d
 | POST JPEG đen tới `http://127.0.0.1:8765/api/analyze` | HTTP 200; `NO_FACE`, EAR null, `should_alert=false` qua MediaPipe thật. |
 | Người dùng tải lại localhost và mở webcam | Người dùng xác nhận EAR hiện số và trạng thái thay đổi khi nhắm mắt. Chưa có xác nhận riêng về âm báo DROWSY hoặc file WebM. |
 | `node --check web/app.js` | Đạt. Browser automation không có trong phiên này; việc nghe loa và xem file WebM cần kiểm tra trên trình duyệt của người dùng. |
+
+## Hợp nhất `main` và `feat/A_vision`
+
+Ngày 2026-10-16: `origin/main` tại `cae9dba` đã chứa toàn bộ nhánh C qua PR #1. `origin/feat/A_vision` tại `c98fa8a` bổ sung tài liệu A/B và 19 bài test A/B. Merge thử phát sinh 5 conflict: `.gitignore`, `README.md`, `requirements.txt`, `src/__init__.py`, `src/contracts.py`.
+
+| File | Cách xử lý |
+| --- | --- |
+| `src/contracts.py`, `src/__init__.py` | Giữ bản main; trường dữ liệu và type của A trùng hoàn toàn, chỉ khác docstring/khoảng trắng. |
+| `requirements.txt` | Giữ MediaPipe 0.10.21 và OpenCV contrib 4.11.0.86 của hai nhánh, giữ NumPy `<2` và `pygame-ce` của C vì CLI cảnh báo âm thanh cần gói này. |
+| `.gitignore` | Gộp ignore môi trường ảo, node build, dataset/recording và file model/video cục bộ. |
+| `README.md` | Giữ hướng dẫn localhost và CLI C, thêm lệnh demo độc lập A và liên kết tài liệu A/B. |
+
+`app.py` trước merge gọi `src.vision.FaceAnalyzer`, nhưng nhánh A chỉ có `drowsiness_detector.py`, không có `src/vision.py`. C thêm fallback vào `FaceAnalyzer` trong `src/web_vision_adapter.py` để dùng hàm EAR/chọn mặt của A và trả `FaceObservation`, không thay đổi A/B hoặc shared contract. Adapter từ chối `--model` vì Face Mesh dùng model kèm package.
+
+| Kiểm tra | Kết quả thật |
+| --- | --- |
+| `python -X utf8 -m unittest discover -s tests -v` | 21/21 test A/B/C đạt sau merge. |
+| `.\.venv-local\Scripts\python.exe -X utf8 -c "import app; A,B=app._load_backends(); ..."` | Nạp `src.web_vision_adapter.FaceAnalyzer` và `src.drowsiness.DrowsinessDetector`; Face Mesh thật trả `FaceObservation(NO_FACE)` cho ảnh đen. |
+| Tạo AVI MJPG 5 FPS/4 frame, `app.run(args)` với `cv2.imshow` giả và file âm thanh thiếu | Xử lý 4 frame bằng A/B thật, exit 0; âm thanh thiếu chỉ ghi cảnh báo và video tiếp tục. |
+| `node --check web/app.js`; `python -X utf8 -m compileall -q app.py src web_app.py` | Đạt. |
+
+Trên đường dẫn repo có tiếng Việt, chạy demo A bằng `python -m scripts.run_a_vision` để dùng cùng cách stage model MediaPipe của adapter C; wrapper không thay đổi code A.

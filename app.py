@@ -35,7 +35,13 @@ def make_parser() -> argparse.ArgumentParser:
 
 def _load_backends():
     try:
-        vision = importlib.import_module("src.vision")
+        try:
+            vision = importlib.import_module("src.vision")
+        except ModuleNotFoundError as exc:
+            if exc.name != "src.vision":
+                raise
+            # A ships drowsiness_detector.py, so C adapts it without editing A.
+            vision = importlib.import_module("src.web_vision_adapter")
         drowsiness = importlib.import_module("src.drowsiness")
         return vision.FaceAnalyzer, drowsiness.DrowsinessDetector
     except (ImportError, AttributeError) as exc:
