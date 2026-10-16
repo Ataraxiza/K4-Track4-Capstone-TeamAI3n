@@ -1,6 +1,11 @@
 import unittest
+from types import SimpleNamespace
 
-from drowsiness_detector import DrowsinessMonitor, eye_aspect_ratio
+from drowsiness_detector import (
+    DrowsinessMonitor,
+    eye_aspect_ratio,
+    select_closest_face,
+)
 
 
 class EyeAspectRatioTests(unittest.TestCase):
@@ -19,6 +24,24 @@ class EyeAspectRatioTests(unittest.TestCase):
     def test_rejects_wrong_number_of_points(self):
         with self.assertRaisesRegex(ValueError, "six"):
             eye_aspect_ratio([(0.0, 0.0)] * 5)
+
+
+class FaceSelectionTests(unittest.TestCase):
+    @staticmethod
+    def make_face(left, top, right, bottom):
+        return [
+            SimpleNamespace(x=left, y=top),
+            SimpleNamespace(x=right, y=bottom),
+        ]
+
+    def test_selects_largest_face_as_closest(self):
+        farther_face = self.make_face(0.1, 0.1, 0.3, 0.4)
+        closer_face = self.make_face(0.5, 0.2, 0.9, 0.8)
+
+        self.assertIs(select_closest_face([farther_face, closer_face]), closer_face)
+
+    def test_returns_none_when_no_faces_are_detected(self):
+        self.assertIsNone(select_closest_face([]))
 
 
 class DrowsinessMonitorTests(unittest.TestCase):

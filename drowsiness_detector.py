@@ -12,6 +12,7 @@ Point = tuple[float, float]
 
 LEFT_EYE = (362, 385, 387, 263, 373, 380)
 RIGHT_EYE = (33, 160, 158, 133, 153, 144)
+MAX_FACES = 5
 
 
 def eye_aspect_ratio(points: Sequence[Point]) -> float:
@@ -96,6 +97,28 @@ def _eye_points(face_landmarks: Sequence[object], indices: Sequence[int]) -> lis
     return [(face_landmarks[index].x, face_landmarks[index].y) for index in indices]
 
 
+def _face_bounds(face_landmarks: Sequence[object]) -> tuple[float, float, float, float]:
+    x_values = [point.x for point in face_landmarks]
+    y_values = [point.y for point in face_landmarks]
+    return min(x_values), min(y_values), max(x_values), max(y_values)
+
+
+def select_closest_face(
+    faces: Sequence[Sequence[object]],
+) -> Sequence[object] | None:
+    """Use the largest apparent face box as the closest-person proxy."""
+    if not faces:
+        return None
+
+    return max(
+        faces,
+        key=lambda landmarks: (
+            (_face_bounds(landmarks)[2] - _face_bounds(landmarks)[0])
+            * (_face_bounds(landmarks)[3] - _face_bounds(landmarks)[1])
+        ),
+    )
+
+
 def _play_alert() -> None:
     try:
         import winsound
@@ -138,7 +161,7 @@ def run_demo(
 
     try:
         with mp.solutions.face_mesh.FaceMesh(
-            max_num_faces=1,
+            max_num_faces=MAX_FACES,
             refine_landmarks=True,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5,
@@ -155,19 +178,13 @@ def run_demo(
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 result = face_mesh.process(rgb_frame)
                 ear: float | None = None
+                face_landmarks = [face.landmark for face in (result.multi_face_landmarks or [])]
+                target_landmarks = select_closest_face(face_landmarks)
 
-                if result.multi_face_landmarks:
-                    landmarks = result.multi_face_landmarks[0].landmark
-                    left_ear = eye_aspect_ratio(_eye_points(landmarks, LEFT_EYE))
-                    right_ear = eye_aspect_ratio(_eye_points(landmarks, RIGHT_EYE))
+                if target_landmarks is not None:
+                    left_ear = eye_aspect_ratio(_eye_points(target_landmarks, LEFT_EYE))
+                    right_ear = eye_aspect_ratio(_eye_points(target_landmarks, RIGHT_EYE))
                     ear = (left_ear + right_ear) / 2.0
-
-                    for indices in (LEFT_EYE, RIGHT_EYE):
-                        for index in indices:
-                            point = landmarks[index]
-                            x = int(point.x * frame.shape[1])
-                            y = int(point.y * frame.shape[0])
-                            cv2.circle(frame, (x, y), 2, (80, 210, 240), -1)
 
                 is_drowsy = monitor.update(ear, now)
                 if is_drowsy and not was_drowsy:
@@ -193,7 +210,7 @@ def run_demo(
                     status = "NORMAL - EYES OPEN"
                     status_color = (70, 190, 100)
 
-                cv2.rectangle(frame, (0, 0), (frame.shape[1], 112), (20, 28, 36), -1)
+                cv2.rectangle(frame, (0, 0), (frame.shape[1], 136), (20, 28, 36), -1)
                 cv2.putText(frame, status, (18, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
                             status_color, 2, cv2.LINE_AA)
                 ear_text = "--" if ear is None else f"{ear:.3f}"
@@ -205,6 +222,31 @@ def run_demo(
                             f"  |  Alerts {alert_count}  |  {fps:.1f} FPS",
                             (18, 94), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 210, 220),
                             1, cv2.LINE_AA)
+                cv2.putText(frame, "Target: closest detected face by box size",
+                            (18, 122), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 210, 220),
+                            1, cv2.LINE_AA)
+
+                frame_height, frame_width = frame.shape[:2]
+                for landmarks in face_landmarks:
+                    min_x, min_y, max_x, max_y = _face_bounds(landmarks)
+                    x1 = max(0, min(frame_width - 1, int(min_x * frame_width)))
+                    y1 = max(0, min(frame_height - 1, int(min_y * frame_height)))
+                    x2 = max(0, min(frame_width - 1, int(max_x * frame_width)))
+                    y2 = max(0, min(frame_height - 1, int(max_y * frame_height)))
+                    is_target = landmarks is target_landmarks
+                    color = (80, 210, 240) if is_target else (150, 150, 150)
+                    label = "TARGET: CLOSEST" if is_target else "OTHER"
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2 if is_target else 1)
+                    cv2.putText(frame, label, (x1, min(max(y1 - 8, 144), frame_height - 8)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1, cv2.LINE_AA)
+                    if is_target:
+                        for indices in (LEFT_EYE, RIGHT_EYE):
+                            for index in indices:
+                                point = landmarks[index]
+                                x = int(point.x * frame_width)
+                                y = int(point.y * frame_height)
+                                cv2.circle(frame, (x, y), 2, (80, 210, 240), -1)
+
                 cv2.imshow("Driver Drowsiness Demo - Q or Esc to quit, R to reset", frame)
 
                 key = cv2.waitKey(1) & 0xFF

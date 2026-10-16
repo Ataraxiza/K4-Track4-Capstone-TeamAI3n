@@ -47,13 +47,14 @@ python drowsiness_detector.py --ear-threshold 0.22 --closed-seconds 1.3
 
 ## Cách hoạt động và bằng chứng
 
-1. Đọc khung hình từ webcam/video và tìm điểm mốc khuôn mặt bằng MediaPipe Face Mesh.
-2. Tính EAR cho từng mắt rồi lấy trung bình. Với sáu điểm mắt theo thứ tự khóe ngoài, hai điểm mí trên, khóe trong, hai điểm mí dưới:
+1. Đọc khung hình từ webcam/video và tìm tối đa 5 khuôn mặt bằng MediaPipe Face Mesh.
+2. Nếu có nhiều người, chọn khuôn mặt có diện tích khung bao lớn nhất làm mục tiêu gần camera nhất; khung hình đánh dấu `TARGET: CLOSEST`, các khuôn mặt còn lại là `OTHER`. Đây là ước lượng theo kích thước ảnh, không phải phép đo khoảng cách 3D.
+3. Tính EAR cho từng mắt của mục tiêu rồi lấy trung bình. Với sáu điểm mắt theo thứ tự khóe ngoài, hai điểm mí trên, khóe trong, hai điểm mí dưới:
 
    $$EAR = \frac{d(p_2,p_6) + d(p_3,p_5)}{2d(p_1,p_4)}$$
 
-3. Một bộ theo dõi thời gian dùng `time.monotonic()` để chỉ cảnh báo khi EAR thấp liên tục đủ lâu; mất khuôn mặt sẽ đặt lại bộ đếm. Ngưỡng mở có thêm biên hồi phục để hạn chế trạng thái nhấp nháy.
-4. Màn hình hiển thị EAR, thời gian nhắm mắt, số lần cảnh báo và FPS. Thời gian cảnh báo mục tiêu là khoảng nhắm mắt cấu hình cộng tối đa một chu kỳ khung hình.
+4. Một bộ theo dõi thời gian dùng `time.monotonic()` để chỉ cảnh báo khi EAR thấp liên tục đủ lâu; mất khuôn mặt sẽ đặt lại bộ đếm. Ngưỡng mở có thêm biên hồi phục để hạn chế trạng thái nhấp nháy.
+5. Màn hình hiển thị mục tiêu được chọn, EAR, thời gian nhắm mắt, số lần cảnh báo và FPS. Thời gian cảnh báo mục tiêu là khoảng nhắm mắt cấu hình cộng tối đa một chu kỳ khung hình.
 
 Demo thể hiện ít nhất hai trụ cột: **Biểu diễn** (điểm mốc khuôn mặt và EAR) và **Thời gian** (theo dõi trạng thái nhắm liên tục). Khi trình bày, đo độ trễ cảnh báo trên một số lần thử và ghi lại điều kiện thử; không diễn giải các lần thử nhỏ thành độ chính xác triển khai thực tế.
 
