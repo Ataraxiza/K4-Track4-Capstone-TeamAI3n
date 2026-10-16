@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and local configuration
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Node.js and frontend build output
+node_modules/
+dist/
+build/
+
+# Local camera captures and datasets
+recordings/
+datasets/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
