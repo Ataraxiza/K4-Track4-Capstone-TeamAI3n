@@ -4,7 +4,7 @@ Demo học tập dùng EAR từ webcam hoặc video để hiển thị bốn tr�
 
 ## Trạng thái
 
-Commit nền `0eada84` tạo [hợp đồng dữ liệu](src/contracts.py). Module C có UI mock, âm thanh và vòng lặp ứng dụng. Module A (`src/vision.py`) và B (`src/drowsiness.py`) chưa có trong checkout này; lệnh `python app.py` sẽ báo thiếu backend cho tới khi hai module được ghép. Xem [kết quả kiểm tra](docs/demo_results.md) để phân biệt mock và demo thật.
+Commit nền `0eada84` tạo [hợp đồng dữ liệu](src/contracts.py). Module C có UI mock, âm thanh, vòng lặp OpenCV và localhost để quay video mô phỏng. Module A (`src/vision.py`) và B (`src/drowsiness.py`) chưa có trong checkout này; lệnh `python app.py` sẽ báo thiếu backend cho tới khi hai module được ghép. Xem [kết quả kiểm tra](docs/demo_results.md) để phân biệt mock và demo thật.
 
 ## Cài đặt
 
@@ -39,6 +39,24 @@ Script lần lượt hiển thị đủ bốn trạng thái từ `FaceObservatio
 ```sh
 python -m scripts.demo_app_mock --output-dir mock-preview
 ```
+
+## Localhost để thử webcam/video và quay demo mock
+
+Trên máy Windows hiện tại, Python 3.10.9 đã có Flask 3.1.2. Nếu Flask chưa có, cài riêng dependency nhẹ của giao diện web:
+
+```powershell
+python -X utf8 -m pip install -r requirements-web.txt
+```
+
+Khởi động server từ root repo:
+
+```powershell
+python web_app.py
+```
+
+Mở **http://127.0.0.1:8765** trong Chrome hoặc Edge trên cùng máy. Cho phép quyền webcam khi trình duyệt hỏi, hoặc chọn một file video. Bấm các trạng thái `NORMAL`, `EYES_CLOSED`, `DROWSY`, `NO_FACE` để thử hình ảnh và âm báo. Bấm **Bắt đầu quay**, **Dừng quay**, rồi **Tải video đã quay** để lưu WebM. Bản ghi là khung hình đã có nhãn, và có âm báo nếu trình duyệt hỗ trợ thu luồng âm thanh của trang. Có thể chọn cổng khác bằng `python web_app.py --port 8766`; `Ctrl+C` dừng server.
+
+Trang ghi rõ **MÔ PHỎNG**: webcam/video chỉ là nền hình; trạng thái được chọn thủ công, chưa nhận diện buồn ngủ thật. Browser giữ hình ảnh cục bộ và chỉ gửi timestamp cùng tên trạng thái tới Python localhost. Các ngưỡng EAR/thời gian được lưu cho phiên mock; chỉ cooldown điều khiển âm báo. `requirements-web.txt` ghim Flask theo phiên bản đã xác nhận trên máy này và không đòi MediaPipe.
 
 ## Chạy demo khi A/B đã có
 

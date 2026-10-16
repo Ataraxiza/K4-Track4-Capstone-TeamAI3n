@@ -50,3 +50,16 @@ Kiểm tra ngày 2026-10-16 trong checkout tạm, không sửa mã A/B:
 Giao diện nhánh hiện là file root `drowsiness_detector.py` với `DrowsinessMonitor(ear_threshold=0.21, closed_seconds=1.5, recovery_margin=0.04)` và `update(ear, now) -> bool`. App C cần `src/vision.py: FaceAnalyzer.analyze(frame, timestamp) -> FaceObservation` và `src/drowsiness.py: DrowsinessDetector.update(observation) -> DrowsinessResult` cùng `max_gap_seconds`; vì thế app C chưa gọi trực tiếp được nhánh này. Nhánh dùng `time.monotonic()` cả khi phát video, khác quy ước timestamp nội dung; `winsound.Beep(880, 250)` chạy đồng bộ trong vòng lặp, có thể chặn video khoảng 250 ms khi báo. `requirements.txt` của nhánh ghim MediaPipe `0.10.21`, C đang khai báo `0.10.14`.
 
 Nhóm cần thống nhất ai tách các lớp khỏi script root theo `src/contracts.py`, xử lý ba ca thời gian/EAR lỗi, đổi EAR sang tọa độ pixel, chọn phiên bản MediaPipe và quyết định có giữ biên hồi phục `recovery_margin` hay theo ngưỡng mở ngay trong hợp đồng. C chưa sửa logic A/B hoặc interface chung.
+
+## Localhost quay video mock
+
+Môi trường cục bộ có Flask 3.1.2 trên Python 3.10.9. Trang localhost dùng `src/contracts.py` thật để tạo bốn trạng thái; hình webcam/video được browser giữ cục bộ, không gửi frame cho Python.
+
+| Kiểm tra | Kết quả thực tế |
+| --- | --- |
+| `python -m compileall -q web_app.py` và `node --check web/app.js` | Đạt. |
+| Flask test client: `/`, `/static/app.js`, `/static/style.css`, `/api/health` | HTTP 200; health trả `mode=mock`. |
+| Flask test client: POST `/api/analyze` cho 4 trạng thái | Đều HTTP 200 và trả đúng `status`, `face_detected`, `should_alert`; input sai trả HTTP 400. |
+| Flask test client: POST `/api/config`, `/api/reset` | Cấu hình hợp lệ và reset trả HTTP 200; `max_gap_seconds=0` trả HTTP 400. |
+| `python -X utf8 web_app.py`, rồi GET `http://127.0.0.1:8765/` và POST `.../api/analyze` | Server thật trả HTTP 200; DROWSY trả EAR `0.14`, thời gian `2.3`, `should_alert=true`. |
+| Mở webcam, nghe âm báo và quay WebM bằng browser | Chưa kiểm tra tương tác trên máy người dùng; cần cho phép webcam và thử nút quay/tải trong Chrome hoặc Edge. |
