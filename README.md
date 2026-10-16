@@ -13,8 +13,8 @@ Yêu cầu Python 3.10 trở lên. Chạy từ root của repo. Trên Windows Po
 ```powershell
 py -3.10 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+python -X utf8 -m pip install --upgrade pip
+python -X utf8 -m pip install -r requirements.txt
 ```
 
 Trên macOS/Linux:
@@ -26,7 +26,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-`requirements.txt` dùng MediaPipe 0.10.14 và OpenCV contrib 4.11.0.86 làm cặp dự kiến cho A. Lệnh phân giải dependency đã thành công trên Python 3.10 Windows, nhưng lượt cài đặt/import MediaPipe trong môi trường sạch chưa hoàn tất; nhóm cần xác nhận trước khi chốt toàn bộ version. Không cài song song `opencv-python` và `opencv-contrib-python` trong cùng môi trường vì cùng cung cấp `cv2`.
+`requirements.txt` dùng MediaPipe 0.10.14 và OpenCV contrib 4.11.0.86 làm cặp dự kiến cho A. Lệnh phân giải dependency trong `.venv` sạch đã thành công trên Python 3.10 Windows, nhưng lượt cài đặt/import MediaPipe chưa hoàn tất; nhóm cần xác nhận trước khi chốt toàn bộ version. Trên máy có đường dẫn tiếng Việt, dùng `-X utf8` cho lệnh pip để tránh lỗi mã hóa console. Không cài song song `opencv-python` và `opencv-contrib-python` trong cùng môi trường vì cùng cung cấp `cv2`.
 
 ## Xem UI bằng mock
 

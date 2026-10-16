@@ -10,7 +10,7 @@ Ngày kiểm tra: 2026-10-16. Môi trường: Windows, Python 3.10.9; Python hi�
 | C1.4 CLI và lỗi | Đã kiểm tra một phần | `python app.py --help`; `python app.py --video missing.avi`; `python app.py` | Help có đủ tham số; video thiếu báo rõ; đường chạy chính báo thiếu A/B đúng thực tế. Chưa thử webcam thật. |
 | C1.5 timestamp video | Đã kiểm tra bằng A/B giả | Tạo AVI 5 FPS, monkeypatch A/B, gọi `app.run()` | Bốn timestamp `0.0, 0.2, 0.4, 0.6`; `max_gap_seconds=0.5` được truyền nguyên vào B giả. |
 | C1.5 tua lại video | Đã kiểm tra bằng A/B giả | Tạo AVI 2 FPS, gửi phím `R` rồi `Q` cho `app.run()` | Timestamp `0.0, 0.0, 0.5`; `B.reset()` được gọi một lần khi tua lại. |
-| C1.6 cài dependency | Chưa hoàn thành | `python -m pip install --dry-run -r requirements.txt` | Phân giải được trên Python 3.10 Windows sau khi cho phép truy cập PyPI. Lượt cài `.venv` dừng khi tải gói lớn; chưa xác nhận import MediaPipe trong môi trường sạch. |
+| C1.6 cài dependency | Đã kiểm tra phân giải, chưa cài đủ | `.\.venv\Scripts\python.exe -X utf8 -m pip install --dry-run -r requirements.txt` | Phân giải thành công trên Python 3.10 Windows trong `.venv` sạch; chưa tải/cài toàn bộ wheel lớn nên chưa xác nhận import MediaPipe. Pip không có `-X utf8` gặp lỗi mã hóa vì đường dẫn repo chứa tiếng Việt; README đã dùng lệnh đúng. |
 | C1.6 A/B thật | Chưa kiểm tra | `rg --files src scripts docs tests` | Checkout chưa có `src/vision.py`, `src/drowsiness.py`, `tests/test_drowsiness.py`; chưa thể merge hoặc nghiệm thu end-to-end. |
 
 ## Tình huống nghiệm thu bắt buộc
